@@ -1,7 +1,7 @@
 # Demo: ABAP HTTP Service Endpoint for Creating Sales Orders w/ RAP Business Object I_SalesOrderTP 
 In another repository I got to the point of HTTP Service Endpoint via [Software-Heroes](https://software-heroes.com/en/sap) and wanted to do a basic example with it and in this regard in [repository (abap-http-service-endpoint-demo)](https://github.com/alikapllan/abap-http-service-endpoint-demo) I implemented the BAPI 'BAPI_SALESORDER_CREATEFROMDAT2' to create a sales order.  
 
-Even though BAPIs are not marked as obsolote by SAP and they still find usage in cloud environments, SAP recommends to replace them with released RAP Business Objects if the relevant SAP System and the business scenario suit. 
+Even though BAPIs are not marked as obsolote by SAP and they still find usage on On-Prem & (private)cloud environments, SAP recommends to replace them with released RAP Business Objects if the relevant SAP System and the business scenario suit. 
    
 After suggestion from [Björn - founder of Software Heroes](https://github.com/Xexer) I decided to give it a try with the released RAP BO - I_SalesOrderTP to create sales order as replacement of 'BAPI_SALESORDER_CREATEFROMDAT2'.  
 
