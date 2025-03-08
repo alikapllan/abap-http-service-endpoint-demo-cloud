@@ -13,7 +13,7 @@ In our Sandbox system we were able to use the RAP BO I_SalesOrderTP as it was re
 The service:
 - Accepts JSON payload.  
 - Deserializes it into based on I_SalesOrderTP structure.
-- And finally creates a Sales Order in SAP System if provided JSON payload proper.
+- And finally creates a Sales Order in SAP System via RAP BO I_SalesOrderTP if provided JSON payload proper.
 
 # Implementations
 
