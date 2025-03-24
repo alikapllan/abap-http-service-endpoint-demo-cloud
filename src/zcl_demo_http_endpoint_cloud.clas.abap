@@ -30,6 +30,12 @@ CLASS zcl_demo_http_endpoint_cloud DEFINITION
     TYPES ty_created_sales_order_no TYPE I_SalesOrderTP-SalesOrder.
 
   PRIVATE SECTION.
+    TYPES: BEGIN OF ty_response_success,
+             status     TYPE string,
+             salesOrder TYPE I_SalesOrderTP-salesorder,
+             message    TYPE string,
+           END OF ty_response_success.
+
     DATA lv_json_payload                TYPE string.
     DATA ls_sales_order_payload_rap_bo  TYPE ty_so_create_rap_bo.
     DATA ls_sales_ord_payload_rap_bo_ml TYPE ty_so_create_rap_bo_multiple.
@@ -89,10 +95,17 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
             " ========= END   - MULTIPLE PROCESSING =========
 
             IF lv_created_sales_order_no IS NOT INITIAL.
+              DATA(ls_response_success) = VALUE ty_response_success(
+                  status     = 'success'
+                  salesOrder = lv_created_sales_order_no
+                  message    = |Sales Order { lv_created_sales_order_no } created successfully.| ).
+
+              DATA(lv_json_response) = ||.
+              lv_json_response = /ui2/cl_json=>serialize( data = ls_response_success ).
+
               response->set_status( i_code   = 200
                                     i_reason = 'OK' ).
-              response->set_text(
-                  |"status":"success","message":"Sales Order { lv_created_sales_order_no } created successfully" | ).
+              response->set_text( lv_json_response ).
             ELSE.
               response->set_status( i_code   = 422
                                     i_reason = 'Unprocessable Entity' ).
