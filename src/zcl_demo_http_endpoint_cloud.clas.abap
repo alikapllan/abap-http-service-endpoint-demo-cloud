@@ -15,12 +15,38 @@ CLASS zcl_demo_http_endpoint_cloud DEFINITION
            END OF ty_so_create_rap_bo.
 
     " For multiple processing
-    TYPES tt_items            TYPE STANDARD TABLE OF I_SalesOrderItemTP WITH DEFAULT KEY.
-    TYPES tt_partners         TYPE STANDARD TABLE OF I_SalesOrderItemPartnerTP WITH DEFAULT KEY.
-    TYPES tt_pricing_elements TYPE STANDARD TABLE OF I_SalesOrderItemPrcgElmntTP WITH DEFAULT KEY.
-    TYPES tt_schedule_lines   TYPE STANDARD TABLE OF I_SalesOrderScheduleLineTP WITH DEFAULT KEY.
+    TYPES  BEGIN OF ty_header_uuid.
+    TYPES:   uuid TYPE sysuuid_x16.
+             INCLUDE TYPE I_SalesOrderTP.
+    TYPES  END OF ty_header_uuid.
+
+    TYPES  BEGIN OF tt_items_uuid.
+    TYPES:   uuid TYPE sysuuid_x16.
+             INCLUDE TYPE I_SalesOrderItemTP.
+    TYPES  END OF tt_items_uuid.
+
+    TYPES  BEGIN OF tt_partners_uuid.
+    TYPES:   uuid_ref TYPE sysuuid_x16.
+             INCLUDE TYPE I_SalesOrderItemPartnerTP.
+    TYPES  END OF tt_partners_uuid.
+
+    TYPES  BEGIN OF tt_pricing_elements_uuid.
+    TYPES:   uuid_ref TYPE sysuuid_x16.
+             INCLUDE TYPE I_SalesOrderItemPrcgElmntTP.
+    TYPES  END OF tt_pricing_elements_uuid.
+
+    TYPES  BEGIN OF tt_schedule_lines_uuid.
+    TYPES:   uuid_ref TYPE sysuuid_x16.
+             INCLUDE TYPE I_SalesOrderScheduleLineTP.
+    TYPES  END OF tt_schedule_lines_uuid.
+
+    TYPES tt_items            TYPE STANDARD TABLE OF tt_items_uuid WITH DEFAULT KEY.
+    TYPES tt_partners         TYPE STANDARD TABLE OF tt_partners_uuid WITH DEFAULT KEY.
+    TYPES tt_pricing_elements TYPE STANDARD TABLE OF tt_pricing_elements_uuid WITH DEFAULT KEY.
+    TYPES tt_schedule_lines   TYPE STANDARD TABLE OF tt_schedule_lines_uuid WITH DEFAULT KEY.
+
     TYPES: BEGIN OF ty_so_create_rap_bo_multiple,
-             SalesOrderHeader             TYPE I_SalesOrderTP,
+             SalesOrderHeader             TYPE ty_header_uuid,
              SalesOrderItem               TYPE STANDARD TABLE OF tt_items WITH DEFAULT KEY,
              SalesOrderItemPartner        TYPE STANDARD TABLE OF tt_partners WITH DEFAULT KEY,
              SalesOrderItemPricingElement TYPE STANDARD TABLE OF tt_pricing_elements WITH DEFAULT KEY,
@@ -246,6 +272,36 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
     DATA(lt_pricing)   = is_sales_order_payload_rap_bo-salesorderitempricingelement.
     DATA(lt_schedules) = is_sales_order_payload_rap_bo-salesorderitemscheduleline.
 
+    DATA(top_index)  = 0.
+
+    " === UUID assignment ===
+    ls_so_header-uuid = xco_cp=>uuid( )->value.
+
+    LOOP AT lt_items REFERENCE INTO DATA(lrt_items_deep).
+      top_index += 1.
+
+      LOOP AT lrt_items_deep->* REFERENCE INTO DATA(lr_item_deep).
+        " Generate UUID for item
+        lr_item_deep->uuid = xco_cp=>uuid( )->value.
+
+        " === Update Partner UUID_REFs for this item ===
+        LOOP AT lt_partners[ top_index ] ASSIGNING FIELD-SYMBOL(<fs_partner>).
+          <fs_partner>-uuid_ref = lr_item_deep->uuid.
+        ENDLOOP.
+
+        " === Update Pricing UUID_REFs for this item ===
+        LOOP AT lt_pricing[ top_index ] ASSIGNING FIELD-SYMBOL(<fs_pricing>).
+          <fs_pricing>-uuid_ref = lr_item_deep->uuid.
+        ENDLOOP.
+
+        " === Update Schedule Line UUID_REFs for this item ===
+        LOOP AT lt_schedules[ top_index ] ASSIGNING FIELD-SYMBOL(<fs_schedule>).
+          <fs_schedule>-uuid_ref = lr_item_deep->uuid.
+        ENDLOOP.
+
+      ENDLOOP.
+    ENDLOOP.
+
     MODIFY ENTITIES OF I_SalesOrderTP
            ENTITY SalesOrder
            CREATE
@@ -256,14 +312,8 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                     SoldToParty
                     RequestedDeliveryDate
                     PurchaseOrderByCustomer )
-           WITH VALUE #( ( %cid  = 'H001'
-                           %data = VALUE #( SalesOrderType          = ls_so_header-SalesOrderType
-                                            SalesOrganization       = ls_so_header-SalesOrganization
-                                            DistributionChannel     = ls_so_header-DistributionChannel
-                                            OrganizationDivision    = ls_so_header-OrganizationDivision
-                                            SoldToParty             = ls_so_header-SoldToParty
-                                            RequestedDeliveryDate   = ls_so_header-RequestedDeliveryDate
-                                            PurchaseOrderByCustomer = ls_so_header-PurchaseOrderByCustomer ) ) )
+           WITH VALUE #( ( %cid  = ls_so_header-uuid
+                           %data = CORRESPONDING #( ls_so_header ) ) )
            " ----------- CREATE ITEMS -----------
            CREATE BY \_Item
            FIELDS ( Product
@@ -271,10 +321,10 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                     RequestedQuantity
                     RequestedQuantityUnit )
            WITH VALUE #( FOR <items> IN lt_items INDEX INTO lv_items_index
-                         ( %cid_ref   = 'H001'  " references the same 'H001'
+                         ( %cid_ref   = ls_so_header-uuid  " references header
                            SalesOrder = space
                            %target    = VALUE #( FOR <item> IN <items>
-                                                 ( %cid                  = |I00{ lv_items_index }|
+                                                 ( %cid                  = <item>-Uuid
                                                    Product               = <item>-Product
                                                    Plant                 = <item>-Plant
                                                    RequestedQuantity     = <item>-RequestedQuantity
@@ -286,11 +336,12 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                     Customer )
            WITH VALUE #( FOR i = 1 UNTIL i > lines( lt_partners )
                          FOR j = 1 UNTIL j > lines( lt_partners[ i ] )
-                         LET ls_partner = lt_partners[ i ][ j ] IN
-                         ( %cid_ref       = |I00{ i }|   " always referencing item {i}
+                         LET lv_uuid    = xco_cp=>uuid( )->value
+                             ls_partner = lt_partners[ i ][ j ] IN
+                         ( %cid_ref       = ls_partner-uuid_ref   " always referencing item
                            salesorder     = space
                            salesorderitem = space
-                           %target        = VALUE #( ( %cid                   = |IP00{ i }{ j }| " this here must always be unique, otherwise 'not unique DUMP'
+                           %target        = VALUE #( ( %cid                   = xco_cp=>uuid( )->value " this here must always be unique, otherwise 'not unique DUMP'
                                                        Customer               = ls_partner-Customer
                                                        PartnerFunctionForEdit = ls_partner-PartnerFunctionForEdit ) ) ) )
            " ----------- CREATE PRICING ELEMENTS -----------
@@ -302,10 +353,10 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
            WITH VALUE #( FOR i = 1 UNTIL i > lines( lt_pricing )
                          FOR j = 1 UNTIL j > lines( lt_pricing[ i ] )
                          LET ls_price = lt_pricing[ i ][ j ] IN
-                         ( %cid_ref       = |I00{ i }| " referencing item
+                         ( %cid_ref       = ls_price-uuid_ref " referencing item
                            salesorder     = space
                            salesorderitem = space
-                           %target        = VALUE #( ( %cid                         = |IPE00{ i }{ j }|
+                           %target        = VALUE #( ( %cid                         = xco_cp=>uuid( )->value
                                                        ConditionType                = ls_price-ConditionType
                                                        ConditionRateAmount          = ls_price-ConditionRateAmount
                                                        ConditionCurrency            = ls_price-ConditionCurrency
@@ -322,10 +373,10 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                FOR i = 1 UNTIL i > lines( lt_schedules )
                FOR j = 1 UNTIL j > lines( lt_schedules[ i ] )
                LET ls_sched = lt_schedules[ i ][ j ] IN
-               ( %cid_ref       = |I00{ i }| " referencing item
+               ( %cid_ref       = ls_sched-uuid_ref " referencing item
                  salesorder     = space
                  salesorderitem = space
-                 %target        = VALUE #( ( %cid                      = |SL00{ i }{ j }|
+                 %target        = VALUE #( ( %cid                      = xco_cp=>uuid( )->value
                                              RequestedDeliveryDate     = ls_sched-RequestedDeliveryDate
                                              ScheduleLineOrderQuantity = ls_sched-ScheduleLineOrderQuantity ) ) ) )
            MAPPED   DATA(ls_mapped)
