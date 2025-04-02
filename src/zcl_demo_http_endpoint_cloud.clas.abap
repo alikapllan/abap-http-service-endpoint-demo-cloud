@@ -285,18 +285,18 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
         lr_item_deep->uuid = xco_cp=>uuid( )->value.
 
         " === Update Partner UUID_REFs for this item ===
-        LOOP AT lt_partners[ top_index ] ASSIGNING FIELD-SYMBOL(<fs_partner>).
-          <fs_partner>-uuid_ref = lr_item_deep->uuid.
+        LOOP AT lt_partners[ top_index ] REFERENCE INTO DATA(lr_partner).
+          lr_partner->uuid_ref = lr_item_deep->uuid.
         ENDLOOP.
 
         " === Update Pricing UUID_REFs for this item ===
-        LOOP AT lt_pricing[ top_index ] ASSIGNING FIELD-SYMBOL(<fs_pricing>).
-          <fs_pricing>-uuid_ref = lr_item_deep->uuid.
+        LOOP AT lt_pricing[ top_index ] REFERENCE INTO DATA(lr_pricing).
+          lr_pricing->uuid_ref = lr_item_deep->uuid.
         ENDLOOP.
 
         " === Update Schedule Line UUID_REFs for this item ===
-        LOOP AT lt_schedules[ top_index ] ASSIGNING FIELD-SYMBOL(<fs_schedule>).
-          <fs_schedule>-uuid_ref = lr_item_deep->uuid.
+        LOOP AT lt_schedules[ top_index ] REFERENCE INTO DATA(lr_schedule).
+          lr_schedule->uuid_ref = lr_item_deep->uuid.
         ENDLOOP.
 
       ENDLOOP.
