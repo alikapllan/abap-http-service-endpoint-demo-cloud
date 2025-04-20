@@ -21,16 +21,16 @@ The service:
 Firstly, I tried with single processing (structure like) to understand the implementation techniques variations of the I_SalesOrderTP.    
 
 [Here type implementation](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L8-L15) to handle the single processing    
-[Method Definition](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L37-L38)  
-[Method Implementation](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L117-L224)  
-[Method Call](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L59-L72)  
+[Method Definition](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L43-L44)  
+[Method Implementation](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L134-L241)  
+[Method Call](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L68-L81)  
 
 Here the implementation quite easy as all you have to do is, to pass the deserialized RAP BO parameters to the I_SalesOrderTP.  
 > [!WARNING]
 > - %cid & %cid_ref is used to mark the connections between entities and this was the part which made me feel a bit confused on the first touch.
 > - At the end of save sequence RAP provides us the created Sales Order Number, but we need to convert it to be able to read. To Do this:
->   - We need a [structure for key of I_SalesOrderTP](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L118)
->   - Then [convert it in the Commit Phase](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L219-L221) to retrieve the created Sales Order Number.
+>   - We need a [structure for key of I_SalesOrderTP](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L135)
+>   - Then [convert it in the Commit Phase](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L236-L238) to retrieve the created Sales Order Number.
 
 > [!NOTE]
 > **To sum basically:**  
@@ -91,17 +91,18 @@ Here the implementation quite easy as all you have to do is, to pass the deseria
 > [!IMPORTANT]
 > Another important thing that I faced as a challenge was how to handle the %cid & %cid_ref as they need to be unique and built to create a proper connection between entities.
 > 
-> In this case I needed a kinda advanced technique which is nested FOR with LET in ABAP to make the %cid_ref unique.
->  - here you can see the applied techniques on entities to manage of handling of the uniqueness of the Content ID & Content ID References.
->     - [Items](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L254-L268)
->     - [Partners](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L269-L282)
->     - [Pricing Elements](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L283-L303)
->     - [Schedule Lines](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L304-L317)
+
+>  - here you can see the applied techniques on entities to manage of handling of the uniqueness of the Content ID & Content ID References. (item referenced to header & partners, pricing elements, schedule lines referenced to item)
+>     - [Header](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L363-L380)
+>     - [Items](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L382-L407)
+>     - [Partners](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L409-L421)
+>     - [Pricing Elements](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L423-L440)
+>     - [Schedule Lines](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L442-L458)
 
 [Here type implementation](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L17-L28) to handle the multiple processing    
-[Method Definition](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L40-L42)  
-[Method Implementation](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L226-L333)  
-[Method Call](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L76-L89)  
+[Method Definition](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L46-L51)  
+[Method Implementation - v2 method](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L352-L484)  
+[Method Call](https://github.com/alikapllan/abap-http-service-endpoint-demo-cloud/blob/main/src/zcl_demo_http_endpoint_cloud.clas.abap#L85-L99)  
 
 ### Postman Call 
 ![image](https://github.com/user-attachments/assets/7c4df08f-f897-4b64-8238-2635ce444550)
