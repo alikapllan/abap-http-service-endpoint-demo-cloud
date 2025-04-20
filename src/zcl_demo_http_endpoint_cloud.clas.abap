@@ -15,38 +15,12 @@ CLASS zcl_demo_http_endpoint_cloud DEFINITION
            END OF ty_so_create_rap_bo.
 
     " For multiple processing
-    TYPES  BEGIN OF ty_header_uuid.
-    TYPES:   uuid TYPE sysuuid_x16.
-             INCLUDE TYPE I_SalesOrderTP.
-    TYPES  END OF ty_header_uuid.
-
-    TYPES  BEGIN OF tt_items_uuid.
-    TYPES:   uuid TYPE sysuuid_x16.
-             INCLUDE TYPE I_SalesOrderItemTP.
-    TYPES  END OF tt_items_uuid.
-
-    TYPES  BEGIN OF tt_partners_uuid.
-    TYPES:   uuid_ref TYPE sysuuid_x16.
-             INCLUDE TYPE I_SalesOrderItemPartnerTP.
-    TYPES  END OF tt_partners_uuid.
-
-    TYPES  BEGIN OF tt_pricing_elements_uuid.
-    TYPES:   uuid_ref TYPE sysuuid_x16.
-             INCLUDE TYPE I_SalesOrderItemPrcgElmntTP.
-    TYPES  END OF tt_pricing_elements_uuid.
-
-    TYPES  BEGIN OF tt_schedule_lines_uuid.
-    TYPES:   uuid_ref TYPE sysuuid_x16.
-             INCLUDE TYPE I_SalesOrderScheduleLineTP.
-    TYPES  END OF tt_schedule_lines_uuid.
-
-    TYPES tt_items            TYPE STANDARD TABLE OF tt_items_uuid WITH DEFAULT KEY.
-    TYPES tt_partners         TYPE STANDARD TABLE OF tt_partners_uuid WITH DEFAULT KEY.
-    TYPES tt_pricing_elements TYPE STANDARD TABLE OF tt_pricing_elements_uuid WITH DEFAULT KEY.
-    TYPES tt_schedule_lines   TYPE STANDARD TABLE OF tt_schedule_lines_uuid WITH DEFAULT KEY.
-
+    TYPES tt_items            TYPE STANDARD TABLE OF I_SalesOrderItemTP WITH DEFAULT KEY.
+    TYPES tt_partners         TYPE STANDARD TABLE OF I_SalesOrderItemPartnerTP WITH DEFAULT KEY.
+    TYPES tt_pricing_elements TYPE STANDARD TABLE OF I_SalesOrderItemPrcgElmntTP WITH DEFAULT KEY.
+    TYPES tt_schedule_lines   TYPE STANDARD TABLE OF I_SalesOrderScheduleLineTP WITH DEFAULT KEY.
     TYPES: BEGIN OF ty_so_create_rap_bo_multiple,
-             SalesOrderHeader             TYPE ty_header_uuid,
+             SalesOrderHeader             TYPE I_SalesOrderTP,
              SalesOrderItem               TYPE STANDARD TABLE OF tt_items WITH DEFAULT KEY,
              SalesOrderItemPartner        TYPE STANDARD TABLE OF tt_partners WITH DEFAULT KEY,
              SalesOrderItemPricingElement TYPE STANDARD TABLE OF tt_pricing_elements WITH DEFAULT KEY,
@@ -70,8 +44,11 @@ CLASS zcl_demo_http_endpoint_cloud DEFINITION
                                            RETURNING VALUE(rv_created_sales_order_no) TYPE ty_created_sales_order_no.
 
     " Example: how to dynamize of handling provided multiple items, partners, conditions, schedules to create a Sales Ord. w/ RAP Business Object
-    METHODS _create_s_ord_via_rap_bo_mult IMPORTING is_sales_order_payload_rap_bo    TYPE ty_so_create_rap_bo_multiple
-                                          RETURNING VALUE(rv_created_sales_order_no) TYPE ty_created_sales_order_no.
+    METHODS _create_s_ord_rap_bo_mult_v1 IMPORTING is_sales_order_payload_rap_bo    TYPE ty_so_create_rap_bo_multiple
+                                         RETURNING VALUE(rv_created_sales_order_no) TYPE ty_created_sales_order_no.
+
+    METHODS _create_s_ord_rap_bo_mult_v2 IMPORTING is_sales_order_payload_rap_bo    TYPE ty_so_create_rap_bo_multiple
+                                         RETURNING VALUE(rv_created_sales_order_no) TYPE ty_created_sales_order_no.
 ENDCLASS.
 
 
@@ -117,7 +94,8 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
               RETURN.
             ENDIF.
             " 2- Create Sales Order via RAP Business Object
-            DATA(lv_created_sales_order_no) = _create_s_ord_via_rap_bo_mult( ls_sales_ord_payload_rap_bo_ml ).
+*            DATA(lv_created_sales_order_no) = _create_s_ord_rap_bo_mult_v1( ls_sales_ord_payload_rap_bo_ml ).
+            DATA(lv_created_sales_order_no) = _create_s_ord_rap_bo_mult_v2( ls_sales_ord_payload_rap_bo_ml ).
             " ========= END   - MULTIPLE PROCESSING =========
 
             IF lv_created_sales_order_no IS NOT INITIAL.
@@ -262,7 +240,7 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
     COMMIT ENTITIES END.
   ENDMETHOD.
 
-  METHOD _create_s_ord_via_rap_bo_mult.
+  METHOD _create_s_ord_rap_bo_mult_v1.
     DATA ls_so_temp_key TYPE STRUCTURE FOR KEY OF I_SalesOrderTP.
 
     " === PROCESS HEADER, ITEMS, PARTNERS, PRICING, SCHEDULES ===
@@ -271,36 +249,6 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
     DATA(lt_partners)  = is_sales_order_payload_rap_bo-salesorderitempartner.
     DATA(lt_pricing)   = is_sales_order_payload_rap_bo-salesorderitempricingelement.
     DATA(lt_schedules) = is_sales_order_payload_rap_bo-salesorderitemscheduleline.
-
-    DATA(top_index)  = 0.
-
-    " === UUID assignment ===
-    ls_so_header-uuid = xco_cp=>uuid( )->value.
-
-    LOOP AT lt_items REFERENCE INTO DATA(lrt_items_deep).
-      top_index += 1.
-
-      LOOP AT lrt_items_deep->* REFERENCE INTO DATA(lr_item_deep).
-        " Generate UUID for item
-        lr_item_deep->uuid = xco_cp=>uuid( )->value.
-
-        " === Update Partner UUID_REFs for this item ===
-        LOOP AT lt_partners[ top_index ] REFERENCE INTO DATA(lr_partner).
-          lr_partner->uuid_ref = lr_item_deep->uuid.
-        ENDLOOP.
-
-        " === Update Pricing UUID_REFs for this item ===
-        LOOP AT lt_pricing[ top_index ] REFERENCE INTO DATA(lr_pricing).
-          lr_pricing->uuid_ref = lr_item_deep->uuid.
-        ENDLOOP.
-
-        " === Update Schedule Line UUID_REFs for this item ===
-        LOOP AT lt_schedules[ top_index ] REFERENCE INTO DATA(lr_schedule).
-          lr_schedule->uuid_ref = lr_item_deep->uuid.
-        ENDLOOP.
-
-      ENDLOOP.
-    ENDLOOP.
 
     MODIFY ENTITIES OF I_SalesOrderTP
            ENTITY SalesOrder
@@ -312,8 +260,14 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                     SoldToParty
                     RequestedDeliveryDate
                     PurchaseOrderByCustomer )
-           WITH VALUE #( ( %cid  = ls_so_header-uuid
-                           %data = CORRESPONDING #( ls_so_header ) ) )
+           WITH VALUE #( ( %cid  = 'H001'
+                           %data = VALUE #( SalesOrderType          = ls_so_header-SalesOrderType
+                                            SalesOrganization       = ls_so_header-SalesOrganization
+                                            DistributionChannel     = ls_so_header-DistributionChannel
+                                            OrganizationDivision    = ls_so_header-OrganizationDivision
+                                            SoldToParty             = ls_so_header-SoldToParty
+                                            RequestedDeliveryDate   = ls_so_header-RequestedDeliveryDate
+                                            PurchaseOrderByCustomer = ls_so_header-PurchaseOrderByCustomer ) ) )
            " ----------- CREATE ITEMS -----------
            CREATE BY \_Item
            FIELDS ( Product
@@ -321,10 +275,10 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                     RequestedQuantity
                     RequestedQuantityUnit )
            WITH VALUE #( FOR <items> IN lt_items INDEX INTO lv_items_index
-                         ( %cid_ref   = ls_so_header-uuid  " references header
+                         ( %cid_ref   = 'H001'  " references the same 'H001'
                            SalesOrder = space
                            %target    = VALUE #( FOR <item> IN <items>
-                                                 ( %cid                  = <item>-Uuid
+                                                 ( %cid                  = |I00{ lv_items_index }|
                                                    Product               = <item>-Product
                                                    Plant                 = <item>-Plant
                                                    RequestedQuantity     = <item>-RequestedQuantity
@@ -336,12 +290,11 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                     Customer )
            WITH VALUE #( FOR i = 1 UNTIL i > lines( lt_partners )
                          FOR j = 1 UNTIL j > lines( lt_partners[ i ] )
-                         LET lv_uuid    = xco_cp=>uuid( )->value
-                             ls_partner = lt_partners[ i ][ j ] IN
-                         ( %cid_ref       = ls_partner-uuid_ref   " always referencing item
+                         LET ls_partner = lt_partners[ i ][ j ] IN
+                         ( %cid_ref       = |I00{ i }|   " always referencing item {i}
                            salesorder     = space
                            salesorderitem = space
-                           %target        = VALUE #( ( %cid                   = xco_cp=>uuid( )->value " this here must always be unique, otherwise 'not unique DUMP'
+                           %target        = VALUE #( ( %cid                   = |IP00{ i }{ j }| " this here must always be unique, otherwise 'not unique DUMP'
                                                        Customer               = ls_partner-Customer
                                                        PartnerFunctionForEdit = ls_partner-PartnerFunctionForEdit ) ) ) )
            " ----------- CREATE PRICING ELEMENTS -----------
@@ -353,10 +306,10 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
            WITH VALUE #( FOR i = 1 UNTIL i > lines( lt_pricing )
                          FOR j = 1 UNTIL j > lines( lt_pricing[ i ] )
                          LET ls_price = lt_pricing[ i ][ j ] IN
-                         ( %cid_ref       = ls_price-uuid_ref " referencing item
+                         ( %cid_ref       = |I00{ i }| " referencing item
                            salesorder     = space
                            salesorderitem = space
-                           %target        = VALUE #( ( %cid                         = xco_cp=>uuid( )->value
+                           %target        = VALUE #( ( %cid                         = |IPE00{ i }{ j }|
                                                        ConditionType                = ls_price-ConditionType
                                                        ConditionRateAmount          = ls_price-ConditionRateAmount
                                                        ConditionCurrency            = ls_price-ConditionCurrency
@@ -373,12 +326,146 @@ CLASS zcl_demo_http_endpoint_cloud IMPLEMENTATION.
                FOR i = 1 UNTIL i > lines( lt_schedules )
                FOR j = 1 UNTIL j > lines( lt_schedules[ i ] )
                LET ls_sched = lt_schedules[ i ][ j ] IN
-               ( %cid_ref       = ls_sched-uuid_ref " referencing item
+               ( %cid_ref       = |I00{ i }| " referencing item
                  salesorder     = space
                  salesorderitem = space
-                 %target        = VALUE #( ( %cid                      = xco_cp=>uuid( )->value
+                 %target        = VALUE #( ( %cid                      = |SL00{ i }{ j }|
                                              RequestedDeliveryDate     = ls_sched-RequestedDeliveryDate
                                              ScheduleLineOrderQuantity = ls_sched-ScheduleLineOrderQuantity ) ) ) )
+           MAPPED   DATA(ls_mapped)
+           FAILED   DATA(ls_failed)
+           REPORTED DATA(ls_reported).
+
+    " Commit work
+    COMMIT ENTITIES BEGIN
+           RESPONSE OF I_SalesOrderTP
+           FAILED   DATA(ls_save_failed)
+           REPORTED DATA(ls_save_reported).
+
+    CONVERT KEY OF I_SalesOrderTP FROM ls_so_temp_key TO DATA(ls_so_final_key).
+    " Return created Sales Order Number
+    rv_created_sales_order_no = ls_so_final_key-SalesOrder.
+
+    COMMIT ENTITIES END.
+  ENDMETHOD.
+
+  METHOD _create_s_ord_rap_bo_mult_v2.
+    DATA ls_so_temp_key      TYPE STRUCTURE FOR KEY OF I_SalesOrderTP.
+
+    DATA lt_so_header        TYPE TABLE FOR CREATE I_SalesOrderTP.
+    DATA lt_items            TYPE TABLE FOR CREATE I_SalesOrderTP\_Item.
+    DATA lt_partners         TYPE TABLE FOR CREATE I_SalesOrderItemTP\_ItemPartner.
+    DATA lt_pricing_elements TYPE TABLE FOR CREATE I_SalesOrderItemTP\_ItemPricingElement.
+    DATA lt_schedule_lines   TYPE TABLE FOR CREATE I_SalesOrderItemTP\_ScheduleLine.
+
+    DATA(data) = is_sales_order_payload_rap_bo.
+
+    " --- Header -------------------------------------------------------
+    INSERT VALUE #( %cid                             = xco_cp=>uuid( )->value
+                    SalesOrderType                   = data-salesorderheader-SalesOrderType
+                    SalesOrganization                = data-salesorderheader-SalesOrganization
+                    DistributionChannel              = data-salesorderheader-DistributionChannel
+                    OrganizationDivision             = data-salesorderheader-OrganizationDivision
+                    SoldToParty                      = data-salesorderheader-SoldToParty
+                    RequestedDeliveryDate            = data-salesorderheader-RequestedDeliveryDate
+                    PurchaseOrderByCustomer          = data-salesorderheader-PurchaseOrderByCustomer
+                    %control-SalesOrderType          = if_abap_behv=>mk-on
+                    %control-SalesOrganization       = if_abap_behv=>mk-on
+                    %control-DistributionChannel     = if_abap_behv=>mk-on
+                    %control-OrganizationDivision    = if_abap_behv=>mk-on
+                    %control-SoldToParty             = if_abap_behv=>mk-on
+                    %control-RequestedDeliveryDate   = if_abap_behv=>mk-on
+                    %control-PurchaseOrderByCustomer = if_abap_behv=>mk-on )
+           INTO TABLE lt_so_header
+           REFERENCE INTO DATA(lr_header).
+
+    " ------------------------------------------------------------------
+    " Create items + dependent entities in one pass
+    DATA(external_index) = 0.
+
+    DO lines( data-SalesOrderItem ) TIMES.         " external index
+
+      external_index += 1.                     " 1,2,3,…
+
+      "------------ Item Wrapper
+      INSERT VALUE #( %cid_ref = lr_header->%cid )           " Reference to header
+             INTO TABLE lt_items
+             REFERENCE INTO DATA(lr_item_wrapper).
+
+      LOOP AT data-SalesOrderItem[ external_index ] INTO DATA(ls_item_json).
+
+        INSERT VALUE #( %cid                           = xco_cp=>uuid( )->value
+                        Product                        = ls_item_json-Product
+                        Plant                          = ls_item_json-Plant
+                        RequestedQuantity              = ls_item_json-RequestedQuantity
+                        RequestedQuantityUnit          = ls_item_json-RequestedQuantityUnit
+                        %control-Product               = if_abap_behv=>mk-on
+                        %control-Plant                 = if_abap_behv=>mk-on
+                        %control-RequestedQuantity     = if_abap_behv=>mk-on
+                        %control-RequestedQuantityUnit = if_abap_behv=>mk-on )
+               INTO TABLE lr_item_wrapper->%target
+               REFERENCE INTO DATA(lr_item_target).
+
+        "--------- Partner
+        INSERT VALUE #( %cid_ref = lr_item_target->%cid )      " Reference to item
+               INTO TABLE lt_partners
+               REFERENCE INTO DATA(lr_part_wrapper).
+
+        LOOP AT data-SalesOrderItemPartner[ external_index ] INTO DATA(ls_part_json).
+          INSERT VALUE #( %cid                            = xco_cp=>uuid( )->value
+                          Customer                        = ls_part_json-Customer
+                          PartnerFunctionForEdit          = ls_part_json-PartnerFunctionForEdit
+                          %control-Customer               = if_abap_behv=>mk-on
+                          %control-PartnerFunctionForEdit = if_abap_behv=>mk-on )
+                 INTO TABLE lr_part_wrapper->%target.
+        ENDLOOP.
+
+        "--------- Pricing Elements
+        INSERT VALUE #( %cid_ref = lr_item_target->%cid ) " Reference to item
+               INTO TABLE lt_pricing_elements
+               REFERENCE INTO DATA(lr_price_wrap).
+
+        LOOP AT data-SalesOrderItemPricingElement[ external_index ] INTO DATA(ls_price_json).
+
+          INSERT VALUE #( %cid                         = xco_cp=>uuid( )->value
+                          ConditionType                = ls_price_json-ConditionType
+                          ConditionRateAmount          = ls_price_json-ConditionRateAmount
+                          ConditionCurrency            = ls_price_json-ConditionCurrency
+                          ConditionQuantity            = ls_price_json-ConditionQuantity
+                          %control-ConditionType       = if_abap_behv=>mk-on
+                          %control-ConditionRateAmount = if_abap_behv=>mk-on
+                          %control-ConditionCurrency   = if_abap_behv=>mk-on
+                          %control-ConditionQuantity   = if_abap_behv=>mk-on )
+                 INTO TABLE lr_price_wrap->%target.
+        ENDLOOP.
+
+        "--------- Schedule Lines
+        INSERT VALUE #( %cid_ref = lr_item_target->%cid ) " Reference to item
+               INTO TABLE lt_schedule_lines
+               REFERENCE INTO DATA(lr_schedule_line_wrapper).
+
+        LOOP AT data-SalesOrderItemScheduleLine[ external_index ] INTO DATA(ls_sched_json).
+
+          INSERT VALUE #( %cid                               = xco_cp=>uuid( )->value
+                          RequestedDeliveryDate              = ls_sched_json-RequestedDeliveryDate
+                          ScheduleLineOrderQuantity          = ls_sched_json-ScheduleLineOrderQuantity
+                          %control-RequestedDeliveryDate     = if_abap_behv=>mk-on
+                          %control-ScheduleLineOrderQuantity = if_abap_behv=>mk-on  )
+                 INTO TABLE lr_schedule_line_wrapper->%target.
+        ENDLOOP.
+
+      ENDLOOP.
+    ENDDO.
+
+    " EML Call in one Statement
+    MODIFY ENTITIES OF I_SalesOrderTP
+           ENTITY SalesOrder
+           CREATE FROM lt_so_header
+           CREATE BY \_Item FROM lt_items
+           ENTITY SalesOrderItem
+           CREATE BY \_ItemPartner FROM lt_partners
+           CREATE BY \_ItemPricingElement FROM lt_pricing_elements
+           CREATE BY \_ScheduleLine FROM lt_schedule_lines
            MAPPED   DATA(ls_mapped)
            FAILED   DATA(ls_failed)
            REPORTED DATA(ls_reported).
