@@ -57,7 +57,7 @@ Here the implementation quite easy as all you have to do is, to pass the deseria
         "DistributionChannel": "10",
         "OrganizationDivision": "00",
         "SoldToParty": "0001000001",
-        "RequestedDeliveryDate": "20250324",
+        "RequestedDeliveryDate": "20250324", // should not be in past
         "PurchaseOrderByCustomer": "TEST"
     },
     "SalesOrderItem": {
@@ -77,7 +77,7 @@ Here the implementation quite easy as all you have to do is, to pass the deseria
         "ConditionQuantity": "1"
     },
     "SalesOrderItemScheduleLine": {
-        "RequestedDeliveryDate": "20250324",
+        "RequestedDeliveryDate": "20250324", // should not be in past
         "ScheduleLineOrderQuantity": "1"
     }
 }
@@ -120,7 +120,7 @@ Here the implementation quite easy as all you have to do is, to pass the deseria
         "DistributionChannel": "10",
         "OrganizationDivision": "00",
         "SoldToParty": "0001000001",
-        "RequestedDeliveryDate": "20250324",
+        "RequestedDeliveryDate": "20250324", // should not be in past
         "PurchaseOrderByCustomer": "TEST"
     },
     "SalesOrderItem": [
@@ -184,13 +184,13 @@ Here the implementation quite easy as all you have to do is, to pass the deseria
     "SalesOrderItemScheduleLine": [
         [
             {
-                "RequestedDeliveryDate": "20250324",
+                "RequestedDeliveryDate": "20250324", // should not be in past
                 "ScheduleLineOrderQuantity": "1"
             }
         ],
         [
             {
-                "RequestedDeliveryDate": "20250324",
+                "RequestedDeliveryDate": "20250324", // should not be in past
                 "ScheduleLineOrderQuantity": "1"
             }
         ]
